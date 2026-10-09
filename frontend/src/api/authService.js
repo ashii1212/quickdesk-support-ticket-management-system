@@ -1,5 +1,7 @@
 // Auth Service for QuickDesk
-const AUTH_URL = 'http://localhost:8080/api/auth';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+const AUTH_URL = `${API_BASE_URL}/api/auth`;
 const STORAGE_KEY = 'quickdesk_user_session';
 
 export const authService = {

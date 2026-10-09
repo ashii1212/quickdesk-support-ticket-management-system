@@ -1,6 +1,7 @@
 // API Client for QuickDesk Backend
-const BASE_URL = 'http://localhost:8080/api/tickets';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+const BASE_URL = `${API_BASE_URL}/api/tickets`;
 export const ticketService = {
   // Get all tickets with optional search and filters
   async getTickets({ search = '', status = '', priority = '', category = '' } = {}) {
@@ -37,7 +38,7 @@ export const ticketService = {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const msg = data.fieldErrors 
+      const msg = data.fieldErrors
         ? Object.values(data.fieldErrors).join(', ')
         : (data.message || 'Failed to create ticket');
       throw new Error(msg);
