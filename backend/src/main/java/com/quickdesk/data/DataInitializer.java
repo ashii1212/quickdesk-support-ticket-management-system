@@ -4,8 +4,11 @@ import com.quickdesk.model.Category;
 import com.quickdesk.model.Priority;
 import com.quickdesk.model.Status;
 import com.quickdesk.model.Ticket;
+import com.quickdesk.model.User;
 import com.quickdesk.repository.TicketRepository;
+import com.quickdesk.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -14,13 +17,29 @@ import java.time.LocalDateTime;
 public class DataInitializer implements CommandLineRunner {
 
     private final TicketRepository ticketRepository;
+    private final UserRepository userRepository;
 
-    public DataInitializer(TicketRepository ticketRepository) {
+    public DataInitializer(TicketRepository ticketRepository, UserRepository userRepository) {
         this.ticketRepository = ticketRepository;
+        this.userRepository = userRepository;
     }
 
     @Override
     public void run(String... args) {
+        // 1. Seed Demo Users if not present
+        if (userRepository.count() == 0) {
+            String adminPasswordHash = BCrypt.hashpw("admin123", BCrypt.gensalt(10));
+            User admin = new User("Admin User", "admin@quickdesk.com", adminPasswordHash, "ADMIN");
+            userRepository.save(admin);
+
+            String agentPasswordHash = BCrypt.hashpw("agent123", BCrypt.gensalt(10));
+            User agent = new User("Alex Morgan", "agent@quickdesk.com", agentPasswordHash, "SUPPORT_AGENT");
+            userRepository.save(agent);
+
+            System.out.println(">>> Initialized QuickDesk default demo users (admin@quickdesk.com / agent@quickdesk.com)!");
+        }
+
+        // 2. Seed Sample Tickets if not present
         if (ticketRepository.count() == 0) {
             Ticket t1 = new Ticket();
             t1.setTicketCode("QD-1001");

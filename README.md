@@ -33,6 +33,14 @@
 - Metrics automatically refresh whenever tickets are created, updated, or removed.
 - Interactive cards allow clicking a summary card to immediately filter the ticket table to that status.
 
+### 5. Support Agent & Admin Authentication
+- **Secure Authentication**: BCrypt password hashing and session tokens.
+- **Role Support**: `ADMIN` and `SUPPORT_AGENT` roles.
+- **One-Click Demo Accounts**: Pre-configured in database for instant evaluation:
+  - **Admin**: `admin@quickdesk.com` / `admin123`
+  - **Support Agent**: `agent@quickdesk.com` / `agent123`
+- **Protected Actions**: Modifying ticket statuses, deleting tickets, and creating tickets are guarded with interactive authentication prompt.
+
 ---
 
 ## 🛠️ Technology Stack
@@ -116,6 +124,9 @@ Base URL: `http://localhost:8080/api/tickets`
 
 | Method | Endpoint | Description |
 |---|---|---|
+| `POST` | `/api/auth/login` | Authenticate agent/admin with email and password |
+| `POST` | `/api/auth/register` | Register a new support staff member |
+| `GET` | `/api/auth/user/{id}` | Fetch agent/admin profile by user ID |
 | `GET` | `/api/tickets` | Retrieve tickets. Supports query params: `search`, `status`, `priority`, `category` |
 | `POST` | `/api/tickets` | Create a new ticket with validated payload |
 | `GET` | `/api/tickets/{id}` | Retrieve single ticket details by ID |

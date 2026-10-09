@@ -5,10 +5,15 @@ import FilterBar from './components/FilterBar';
 import TicketTable from './components/TicketTable';
 import CreateTicketModal from './components/CreateTicketModal';
 import TicketDetailModal from './components/TicketDetailModal';
+import AuthModal from './components/AuthModal';
 import { ticketService } from './api/ticketService';
-import { Check, AlertCircle } from 'lucide-react';
+import { authService } from './api/authService';
+import { Check, AlertCircle, ShieldAlert } from 'lucide-react';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState(() => authService.getCurrentUser());
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+
   const [tickets, setTickets] = useState([]);
   const [stats, setStats] = useState({ totalTickets: 0, openTickets: 0, inProgressTickets: 0, resolvedTickets: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -32,6 +37,27 @@ export default function App() {
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3500);
+  };
+
+  // Auth Handlers
+  const handleAuthSuccess = (userData) => {
+    setCurrentUser(userData);
+    addToast(`Welcome back, ${userData.name}! Logged in as ${userData.role === 'ADMIN' ? 'Admin' : 'Agent'}.`);
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setCurrentUser(null);
+    addToast('You have signed out successfully.', 'info');
+  };
+
+  const requireAuth = (actionCallback) => {
+    if (!currentUser) {
+      addToast('Please sign in to perform this action', 'error');
+      setIsAuthOpen(true);
+      return;
+    }
+    actionCallback();
   };
 
   // Fetch Dashboard Metrics
@@ -72,20 +98,21 @@ export default function App() {
 
   // Handle Status Update
   const handleStatusChange = async (ticketId, newStatus) => {
-    try {
-      const updated = await ticketService.updateTicketStatus(ticketId, newStatus);
-      // Update local ticket list
-      setTickets((prev) =>
-        prev.map((t) => (t.id === ticketId ? { ...t, status: updated.status, updatedAt: updated.updatedAt } : t))
-      );
-      if (activeTicket && activeTicket.id === ticketId) {
-        setActiveTicket((prev) => ({ ...prev, status: updated.status, updatedAt: updated.updatedAt }));
+    requireAuth(async () => {
+      try {
+        const updated = await ticketService.updateTicketStatus(ticketId, newStatus);
+        setTickets((prev) =>
+          prev.map((t) => (t.id === ticketId ? { ...t, status: updated.status, updatedAt: updated.updatedAt } : t))
+        );
+        if (activeTicket && activeTicket.id === ticketId) {
+          setActiveTicket((prev) => ({ ...prev, status: updated.status, updatedAt: updated.updatedAt }));
+        }
+        addToast(`Ticket ${updated.ticketCode} status changed to ${newStatus.replace('_', ' ')}`);
+        loadStats();
+      } catch (err) {
+        addToast(err.message || 'Failed to change status', 'error');
       }
-      addToast(`Ticket ${updated.ticketCode} status changed to ${newStatus.replace('_', ' ')}`);
-      loadStats();
-    } catch (err) {
-      addToast(err.message || 'Failed to change status', 'error');
-    }
+    });
   };
 
   // Handle Create Ticket
@@ -98,15 +125,17 @@ export default function App() {
 
   // Handle Delete Ticket
   const handleDeleteTicket = async (ticketId) => {
-    if (!window.confirm('Are you sure you want to delete this ticket?')) return;
-    try {
-      await ticketService.deleteTicket(ticketId);
-      addToast('Ticket deleted successfully');
-      loadTickets();
-      loadStats();
-    } catch (err) {
-      addToast(err.message || 'Failed to delete ticket', 'error');
-    }
+    requireAuth(async () => {
+      if (!window.confirm('Are you sure you want to delete this ticket?')) return;
+      try {
+        await ticketService.deleteTicket(ticketId);
+        addToast('Ticket deleted successfully');
+        loadTickets();
+        loadStats();
+      } catch (err) {
+        addToast(err.message || 'Failed to delete ticket', 'error');
+      }
+    });
   };
 
   // Handle Filter Reset
@@ -119,9 +148,47 @@ export default function App() {
 
   return (
     <div className="app-container">
-      <Navbar onOpenCreateModal={() => setIsCreateOpen(true)} />
+      <Navbar
+        currentUser={currentUser}
+        onOpenLoginModal={() => setIsAuthOpen(true)}
+        onLogout={handleLogout}
+        onOpenCreateModal={() => requireAuth(() => setIsCreateOpen(true))}
+      />
 
       <main className="main-content">
+        {/* Banner if not signed in */}
+        {!currentUser && (
+          <div
+            style={{
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              borderRadius: 'var(--radius-lg)',
+              padding: '1rem 1.5rem',
+              marginBottom: '1.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              flexWrap: 'wrap'
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 700, color: '#1e40af', fontSize: '0.9375rem' }}>
+                👋 Welcome to QuickDesk Support Management
+              </div>
+              <div style={{ color: '#3b82f6', fontSize: '0.8125rem', marginTop: '0.2rem' }}>
+                Sign in with demo agent or admin credentials to create tickets, edit statuses, and manage requests.
+              </div>
+            </div>
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setIsAuthOpen(true)}
+            >
+              Sign In Now
+            </button>
+          </div>
+        )}
+
         {/* Dashboard Summary Cards */}
         <DashboardStats
           stats={stats}
@@ -150,9 +217,16 @@ export default function App() {
           onStatusChange={handleStatusChange}
           onViewTicket={(ticket) => setActiveTicket(ticket)}
           onDeleteTicket={handleDeleteTicket}
-          onOpenCreateModal={() => setIsCreateOpen(true)}
+          onOpenCreateModal={() => requireAuth(() => setIsCreateOpen(true))}
         />
       </main>
+
+      {/* Auth Modal (Login / Register) */}
+      <AuthModal
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+      />
 
       {/* Create Ticket Modal */}
       <CreateTicketModal
